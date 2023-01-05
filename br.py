@@ -165,9 +165,9 @@ customers = st.secrets["CUSTOMERS"]
 def mapToCustomer(title):
     splitted = title.split("-")
     if len(splitted) > 1:
-        return splitted[0].trim()
+        return splitted[0].strip()
     else:
-        return title.split("—")[0].trim()
+        return title.split("—")[0].strip()
     # for c in customers:
     #     if c.lower() in title.lower():
     #         return c
