@@ -1,13 +1,10 @@
 import streamlit as st
 # Import basic libraries
 import requests
-# import datetime as dt
 
 # Import numeric libraries
 # The following libraries depend on `numpy`, in case this causes issues try changing kernel
 
-# import seaborn as sns
-# import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
@@ -15,22 +12,17 @@ import numpy as np
 from bokeh.palettes import Paired
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, BasicTickFormatter
-# import bokeh.io
 
-# Retrieve opportunities kaiten data
-kaitenUrl = st.secrets["CUSTOMER_CONTRACTS_BOARD"]
-kaitenToken = st.secrets['KAITEN_TOKEN']
-headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + kaitenToken }
-res = requests.get(kaitenUrl, headers=headers)
-opportunities = pd.DataFrame.from_dict(res.json()['cards'])
-columns = { el['id']:el['title'] for el in res.json()['columns'] }
+import jira_client
+
+opportunities = pd.DataFrame.from_dict(jira_client.issues())
 
 def column_to_status(column_name: str):
     won = 'Won'
     match column_name:
-        case 'In negotiation' | 'Committed to offer' | 'Opportunities' | 'In negotiation' | 'In formal signing':
+        case 'In Negotiation' | 'Committed to offer' | 'Opportunities' | 'In formal signing' | 'Lost' | 'Backlog':
             return column_name
-        case _:
+        case 'Active contract' | 'Expired' | 'Expired, with actions or invoices pending':
             return won
 
 st.title('Monthy Business Review')
@@ -52,56 +44,66 @@ TARGET_DEFAULT = st.secrets["TARGET_DEFAULT"]
 TARGET = st.number_input('Insert target', value=TARGET_DEFAULT)
 YEAR = st.number_input('Insert year', value=2022)
 
-st.write("""
-# Sales Pipeline
-Open opportunities sorted by status and weighted oyov.
-""")
-
 status_weights = {
     'Won': 1.0,
     'In formal signing': 0.8,
-    'In negotiation': 0.65,
+    'In Negotiation': 0.65,
     'Committed to offer': 0.5,
     'Opportunities': 0.1,
 }
 
 statuses = list(status_weights.keys())
 
-def expected_closing_date(json):
-    d = json.get('id_15322')
-    if (d is None):
-        d = json.get('id_15321')
-    if (d is None):
-        return None
-    return d['date']
+#def expected_closing_date(json):
+#    d = json.get('id_15322')
+#    if (d is None):
+#        d = json.get('id_15321')
+#    if (d is None):
+#        return None
+#    return d['date']
 
 def quarter(j):
-    d = expected_closing_date(j)
-    if d is None:
+    if j is None:
         return None
     else:
-        return pd.to_datetime(d).quarter
+        return pd.to_datetime(j).quarter
 
 def year(j):
-    d = expected_closing_date(j)
-    if d is None:
+    if j is None:
         return None
     else:
-        return pd.to_datetime(d).year
+        return int(j[:4])
 
-opportunities['year'] = opportunities['properties'].apply(year)
-opportunities['quarter'] = opportunities['properties'].apply(quarter)
-opportunities['oyov'] = opportunities['properties'].apply(lambda j: j.get('id_1652'))
-opportunities['status'] = opportunities['column_id'].apply(lambda x: column_to_status(columns[x]))
+opportunities['year'] = opportunities['date'].apply(year)
+opportunities['quarter'] = opportunities['date'].apply(quarter)
+opportunities['oyov'] = opportunities['value']
+opportunities['status'] = opportunities['status'].apply(lambda x: column_to_status(x))
+remove = opportunities[(opportunities['status'] == 'Lost') | (opportunities['status'] == 'Backlog')]
+#opportunities = opportunities[(opportunities['status'] != 'Lost') & (opportunities['status'] != 'Backlog') & (opportunities['status'] != 'Active contract')]
+opportunities = opportunities[opportunities['status'].isin(status_weights.keys())]
 opportunities['weight'] = opportunities['status'].apply(lambda x: status_weights[x])
 opportunities['weighted_oyov'] = opportunities[['oyov', 'status']].apply(lambda o: o[0] * status_weights[o[1]], axis=1)
 opportunities['hr_weighted_oyov'] = opportunities['weighted_oyov'].apply(lambda x: f'{x:9.2f} k€')
 opportunities['hr_oyov'] = opportunities['oyov'].apply(lambda x: f'{x:9.2f} k€')
 opportunities = opportunities[opportunities['year'] == YEAR]
 
+won_opportunities=opportunities[opportunities['status']=='Won'].sort_values(
+    by=['weight', 'weighted_oyov'], ascending=[0, 0])[
+    ['title', 'hr_oyov', 'hr_weighted_oyov', 'status', 'weight']]
+
+st.write("""
+# Won opportunities
+""")
+st.table(won_opportunities)
+
 major_opportunities=opportunities[opportunities['status']!='Won'].sort_values(
     by=['weight', 'weighted_oyov'], ascending=[0, 0])[
     ['title', 'hr_oyov', 'hr_weighted_oyov', 'status', 'weight']]
+
+st.write("""
+# Sales Pipeline
+Open opportunities sorted by status and weighted oyov.
+""")
 
 st.table(major_opportunities)
 
@@ -190,18 +192,18 @@ st.write("""
 
 st.bokeh_chart(p)
 
-kaitenUrl = st.secrets["SALES_PIPELINE_BOARD"]
-headers = {
-    'Content-Type': 'application/json',
-    'Authorization': f'Bearer {kaitenToken}'
-}
-res = requests.get(kaitenUrl, headers=headers)
-prospects = pd.DataFrame.from_dict(res.json()['cards'])
-hot = prospects[prospects['column_id']==308017]
-
-st.write("""
-# New Business
-## Hot Prospects
-""")
-
-st.table(hot[['title', 'created', 'updated']])
+#kaitenUrl = st.secrets["SALES_PIPELINE_BOARD"]
+#headers = {
+#    'Content-Type': 'application/json',
+#    'Authorization': f'Bearer {kaitenToken}'
+#}
+#res = requests.get(kaitenUrl, headers=headers)
+#prospects = pd.DataFrame.from_dict(res.json()['cards'])
+#hot = prospects[prospects['column_id']==308017]
+#
+#st.write("""
+## New Business
+### Hot Prospects
+#""")
+#
+#st.table(hot[['title', 'created', 'updated']])
