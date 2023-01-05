@@ -42,7 +42,7 @@ Summary:
 
 TARGET_DEFAULT = st.secrets["TARGET_DEFAULT"]
 TARGET = st.number_input('Insert target', value=TARGET_DEFAULT)
-YEAR = st.number_input('Insert year', value=2022)
+YEAR = st.number_input('Insert year', value=2023)
 
 status_weights = {
     'Won': 1.0,
