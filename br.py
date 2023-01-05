@@ -163,10 +163,15 @@ st.bokeh_chart(p, use_container_width=True)
 customers = st.secrets["CUSTOMERS"]
 
 def mapToCustomer(title):
-    for c in customers:
-        if c.lower() in title.lower():
-            return c
-    return np.nan
+    splitted = title.split("-")
+    if len(splitted) > 1:
+        return splitted[0].trim()
+    else:
+        return title.split("—")[0].trim()
+    # for c in customers:
+    #     if c.lower() in title.lower():
+    #         return c
+    # return np.nan
 
 opportunities['customer'] = opportunities['title'].apply(mapToCustomer)
 #opportunities[opportunities['customer'].isnull()][['title', 'oyov']]
