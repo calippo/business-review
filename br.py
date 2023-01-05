@@ -49,7 +49,7 @@ status_weights = {
     'In formal signing': 0.8,
     'In Negotiation': 0.65,
     'Committed to offer': 0.5,
-    'Opportunities': 0.1,
+    'Backlog': 0.1,
 }
 
 statuses = list(status_weights.keys())
@@ -78,8 +78,8 @@ opportunities['year'] = opportunities['date'].apply(year)
 opportunities['quarter'] = opportunities['date'].apply(quarter)
 opportunities['oyov'] = opportunities['value']
 opportunities['status'] = opportunities['status'].apply(lambda x: column_to_status(x))
-remove = opportunities[(opportunities['status'] == 'Lost') | (opportunities['status'] == 'Backlog')]
 #opportunities = opportunities[(opportunities['status'] != 'Lost') & (opportunities['status'] != 'Backlog') & (opportunities['status'] != 'Active contract')]
+remove = opportunities[~(opportunities['status'].isin(status_weights.keys()))]
 opportunities = opportunities[opportunities['status'].isin(status_weights.keys())]
 opportunities['weight'] = opportunities['status'].apply(lambda x: status_weights[x])
 opportunities['weighted_oyov'] = opportunities[['oyov', 'status']].apply(lambda o: o[0] * status_weights[o[1]], axis=1)
