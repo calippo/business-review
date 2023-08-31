@@ -108,6 +108,7 @@ p.legend.location = 'top_left'
 
 st.write("""
 # Ordered value by quarter
+The "ordered value" is computed by considering the value of each opportunity for both the current year and the next year.
 """)
 
 st.bokeh_chart(p, use_container_width=True)
@@ -145,6 +146,7 @@ p.legend.location = 'bottom_right'
 
 st.write("""
 # Customers by required focus
+The "ordered value" is computed by considering the value of each opportunity for both the current year and the next year.
 """)
 
 st.bokeh_chart(p)
