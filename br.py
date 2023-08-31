@@ -108,7 +108,8 @@ p.legend.location = 'top_left'
 
 st.write("""
 # Ordered value by quarter
-The "ordered value" is computed by considering the value of each opportunity for both the current year and the next year.
+The "ordered value" is computed by considering the overall value (including both the current and next year) of each opportunity that is closed in the reference year.
+Note that this metric does not correspond to revenues, but rather to the total value of closed opportunities.
 """)
 
 st.bokeh_chart(p, use_container_width=True)
@@ -146,7 +147,8 @@ p.legend.location = 'bottom_right'
 
 st.write("""
 # Customers by required focus
-The "ordered value" is computed by considering the value of each opportunity for both the current year and the next year.
+The "ordered value" is computed by considering the overall value (including both the current and next year) of each opportunity that is closed in the reference year.
+Note that this metric does not correspond to revenues, but rather to the total value of closed opportunities.
 """)
 
 st.bokeh_chart(p)
