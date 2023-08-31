@@ -1,6 +1,4 @@
 import streamlit as st
-# Import basic libraries
-import requests
 
 # Import numeric libraries
 # The following libraries depend on `numpy`, in case this causes issues try changing kernel
@@ -9,21 +7,17 @@ import pandas as pd
 import numpy as np
 
 # Plotting library imports and configurations
-from bokeh.palettes import Paired
+from bokeh.palettes import Paired, viridis
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, BasicTickFormatter
+from bokeh.models import ColumnDataSource, BasicTickFormatter, FactorRange
+from bokeh.transform import factor_cmap
+from bokeh.layouts import layout
 
 import jira_client
+from data_processing import statuses, process_opportunities
 
 opportunities = pd.DataFrame.from_dict(jira_client.issues())
 
-def column_to_status(column_name: str):
-    won = 'Won'
-    match column_name:
-        case 'In Negotiation' | 'Committed to offer' | 'Opportunities' | 'In formal signing' | 'Lost' | 'Backlog':
-            return column_name
-        case 'Active contract' | 'Expired' | 'Expired, with actions or invoices pending':
-            return won
 
 st.title('Monthy Business Review')
 
@@ -44,49 +38,7 @@ TARGET_DEFAULT = st.secrets["TARGET_DEFAULT"]
 TARGET = st.number_input('Insert target', value=TARGET_DEFAULT)
 YEAR = st.number_input('Insert year', value=2023)
 
-status_weights = {
-    'Won': 1.0,
-    'In formal signing': 0.8,
-    'In Negotiation': 0.65,
-    'Committed to offer': 0.5,
-    'Backlog': 0.1,
-}
-
-statuses = list(status_weights.keys())
-
-#def expected_closing_date(json):
-#    d = json.get('id_15322')
-#    if (d is None):
-#        d = json.get('id_15321')
-#    if (d is None):
-#        return None
-#    return d['date']
-
-def quarter(j):
-    if j is None:
-        return None
-    else:
-        return pd.to_datetime(j).quarter
-
-def year(j):
-    if j is None:
-        return None
-    else:
-        return int(j[:4])
-
-opportunities['year'] = opportunities['date'].apply(year)
-opportunities['quarter'] = opportunities['date'].apply(quarter)
-opportunities['oyov'] = opportunities['value']
-opportunities['status'] = opportunities['status'].apply(lambda x: column_to_status(x))
-#opportunities = opportunities[(opportunities['status'] != 'Lost') & (opportunities['status'] != 'Backlog') & (opportunities['status'] != 'Active contract')]
-remove = opportunities[~(opportunities['status'].isin(status_weights.keys()))]
-opportunities = opportunities[opportunities['status'].isin(status_weights.keys())]
-opportunities['weight'] = opportunities['status'].apply(lambda x: status_weights[x])
-opportunities['weighted_oyov'] = opportunities[['oyov', 'status']].apply(lambda o: o[0] * status_weights[o[1]], axis=1)
-opportunities['hr_weighted_oyov'] = opportunities['weighted_oyov'].apply(lambda x: f'{x:9.2f} k€')
-opportunities['hr_oyov'] = opportunities['oyov'].apply(lambda x: f'{x:9.2f} k€')
-opportunities = opportunities[opportunities['year'] == YEAR]
-
+(all_time_opportunities, opportunities) = process_opportunities(opportunities, YEAR)
 won_opportunities=opportunities[opportunities['status']=='Won'].sort_values(
     by=['weight', 'weighted_oyov'], ascending=[0, 0])[
     ['title', 'hr_oyov', 'hr_weighted_oyov', 'status', 'weight']]
@@ -197,18 +149,48 @@ st.write("""
 
 st.bokeh_chart(p)
 
-#kaitenUrl = st.secrets["SALES_PIPELINE_BOARD"]
-#headers = {
-#    'Content-Type': 'application/json',
-#    'Authorization': f'Bearer {kaitenToken}'
-#}
-#res = requests.get(kaitenUrl, headers=headers)
-#prospects = pd.DataFrame.from_dict(res.json()['cards'])
-#hot = prospects[prospects['column_id']==308017]
-#
-#st.write("""
-## New Business
-### Hot Prospects
-#""")
-#
-#st.table(hot[['title', 'created', 'updated']])
+st.write("""
+# Customer acquisition source
+""")
+
+def customerAcquisition(df):
+    df = df.dropna(subset=['source', 'date'])
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Extract year and quarter
+    df['year_quarter'] = df['date'].dt.to_period("Q").astype(str)
+    
+    # Convert source column to string to avoid comparison errors
+    df['source'] = df['source'].astype(str)
+    
+    # Pivot table
+    pivot_df = df.pivot_table(index='year_quarter', columns='source', values='weighted_oyov', aggfunc='sum', fill_value=0)
+    pivot_df = pivot_df.reset_index()
+    
+    # Sort by year_quarter
+    pivot_df = pivot_df.sort_values(by='year_quarter')
+    
+    source = ColumnDataSource(pivot_df)
+    sources = sorted(df['source'].unique().tolist())
+    
+    # Create figure
+    p = figure(y_range=FactorRange(*pivot_df['year_quarter'].astype(str).unique()), height=350, width=800,
+               title="Weighted Oyov per Source Grouped by Year-Quarter",
+               tooltips='$name: @$name{int} k€',
+               toolbar_location='right')
+    
+    # Horizontal stacked bars
+    p.hbar_stack(sources, y='year_quarter', height=0.4, color=colors,
+                 source=source, legend_label=["%s" % x for x in sources])
+    
+    # Customize the plot
+    p.y_range.range_padding = 0.1
+    p.legend.title = 'Source'
+    p.legend.location = "top_right"
+    
+    # Set x-axis label to indicate unit of measure in k euros
+    p.xaxis.axis_label = 'Amount (k€)'
+    
+    return p
+
+st.bokeh_chart(customerAcquisition(all_time_opportunities))

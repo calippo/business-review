@@ -4,6 +4,8 @@ import os
 JIRA_TOKEN = os.getenv('JIRA_TOKEN')
 jira = JIRA(server="https://buildo.atlassian.net", basic_auth=('claudio@buildo.io', JIRA_TOKEN))
 
+
+
 def get_fields(i):
     summary = i.fields.summary
     #customfield_10089 value this year 
@@ -20,13 +22,15 @@ def get_fields(i):
     date = i.fields.customfield_10087
     status = i.fields.status.name
     project = i.fields.project.name
+    source = i.fields.customfield_10119
     return {
         "title": summary,
         "value": value,
         "value_next_year": value_next_year,
         "date": date,
         "status": status,
-        "project": project
+        "project": project,
+        "source": source
     }
 
 def issues():
